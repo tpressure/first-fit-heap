@@ -275,7 +275,7 @@ public:
         assert(mem.size() != 0);
         assert((mem.base() & (mem.alignment() - 1)) == 0);
         assert((mem.base() + mem.size()) > mem.base());
-        
+
         // printf("memory at %lx+%lx\n", mem.base(), mem.size());
 
         // auto *root = new(reinterpret_cast<void *>(mem.base())) header_free(mem.size() - sizeof(header_used));
@@ -336,7 +336,7 @@ public:
     void free(void *p)
     {
         header_free *header {reinterpret_cast<header_free *>(reinterpret_cast<char *>(p) - sizeof(header_used))};
-        
+
         assert(header->canary_alive());
 
         auto elem = free_list.insert(header);
@@ -346,10 +346,23 @@ public:
     size_t num_blocks() const
     {
         size_t cnt {0};
+
         for (auto __attribute__((unused)) elem : free_list) {
             cnt++;
         }
+
         return cnt;
+    }
+
+    size_t free_mem() const
+    {
+        size_t size {0};
+
+        for (auto  elem : free_list) {
+            size += elem->size();
+        }
+
+        return size;
     }
 
 protected:
