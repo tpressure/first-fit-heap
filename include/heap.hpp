@@ -216,8 +216,9 @@ private:
 
         iterator insert(header_free *val)
         {
-            auto pos = position_for(val);
-            return insert_after(val, pos);
+            auto pos  = position_for(val);
+            auto elem = insert_after(val, pos);
+            return try_merge_front(try_merge_back(elem));
         }
 
         iterator insert_after(header_free *val, iterator other)
@@ -260,6 +261,37 @@ private:
             return {val};
         }
 
+        iterator try_merge_back(iterator it)
+        {
+            auto *following = (*it)->following_block();
+            if (following and following->is_free()) {
+                auto *following_free = static_cast<header_free*>(following);
+                (*it)->next(following_free->next());
+                (*it)->size((*it)->size() + following_free->size() + sizeof(header_used));
+                (*it)->update_footer();
+            }
+            return it;
+        }
+
+        iterator try_merge_front(iterator it)
+        {
+            if (not (*it)->prev_free()) {
+                // printf("  %p prev not free\n", (*it)->preceding_block());
+                return it;
+            }
+
+            auto *preceding = static_cast<header_free *>((*it)->preceding_block());
+            if (not preceding) {
+                // printf("  no preceding block\n");
+                return it;
+            }
+
+        // printf("  merging %p with %p\n", preceding, this);
+
+        assert(preceding->is_free());
+        return try_merge_back({preceding});
+    }
+
     private:
         header_free *list;
     };
@@ -275,12 +307,6 @@ public:
         assert(mem.size() != 0);
         assert((mem.base() & (mem.alignment() - 1)) == 0);
         assert((mem.base() + mem.size()) > mem.base());
-
-        // printf("memory at %lx+%lx\n", mem.base(), mem.size());
-
-        // auto *root = new(reinterpret_cast<void *>(mem.base())) header_free(mem.size() - sizeof(header_used));
-
-        // printf("header at %p, footer at %p, size %lx\n", root, root->get_footer(), root->size());
     }
 
     void dump()
@@ -339,8 +365,7 @@ public:
 
         assert(header->canary_alive());
 
-        auto elem = free_list.insert(header);
-        try_merge_front(try_merge_back(elem));
+        free_list.insert(header);
     }
 
     size_t num_blocks() const
@@ -400,35 +425,5 @@ protected:
         return {};
     }
 
-    iterator try_merge_back(iterator it)
-    {
-        auto *following = (*it)->following_block();
-        if (following and following->is_free()) {
-            auto *following_free = static_cast<header_free*>(following);
-            (*it)->next(following_free->next());
-            (*it)->size((*it)->size() + following_free->size() + sizeof(header_used));
-            (*it)->update_footer();
-        }
-        return it;
-    }
-
-    iterator try_merge_front(iterator it)
-    {
-        if (not (*it)->prev_free()) {
-            // printf("  %p prev not free\n", (*it)->preceding_block());
-            return it;
-        }
-
-        auto *preceding = static_cast<header_free *>((*it)->preceding_block());
-        if (not preceding) {
-            // printf("  no preceding block\n");
-            return it;
-        }
-
-        // printf("  merging %p with %p\n", preceding, this);
-
-        assert(preceding->is_free());
-        return try_merge_back({preceding});
-    }
 };
 
