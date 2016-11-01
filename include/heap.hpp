@@ -66,7 +66,7 @@ private:
         size_t size() const { return s; }
 
         void size(size_t size) { s = size; }
-        header_free* header() { return reinterpret_cast<header_free*>(reinterpret_cast<char *>(this) + sizeof(footer) - size() - sizeof(header_used)); }
+        header_free* header()  { return reinterpret_cast<header_free*>(reinterpret_cast<char *>(this) + sizeof(footer) - size() - sizeof(header_used)); }
 
     private:
         size_t s;
@@ -86,10 +86,7 @@ private:
         volatile size_t canary {CANARY_VALUE};
 
     public:
-        header_used(const size_t size_)
-        {
-            size(size_);
-        }
+        header_used(const size_t size_) { size(size_); }
 
         size_t size() const { return raw & ~SIZE_MASK; }
 
@@ -188,20 +185,11 @@ private:
                 return *this;
             }
 
-            header_free *operator*() const
-            {
-                return block;
-            }
+            header_free *operator*() const { return block; }
 
-            bool operator!=(const iterator &other) const
-            {
-                return block != other.block;
-            }
+            bool operator!=(const iterator &other) const { return block != other.block; }
 
-            bool operator==(const iterator &other) const
-            {
-                return not operator!=(other);
-            }
+            bool operator==(const iterator &other) const { return not operator!=(other); }
 
         private:
             header_free *block;
@@ -265,12 +253,14 @@ private:
         iterator try_merge_back(iterator it)
         {
             auto *following = (*it)->following_block();
+
             if (following and following->is_free()) {
                 auto *following_free = static_cast<header_free*>(following);
                 (*it)->next(following_free->next());
                 (*it)->size((*it)->size() + following_free->size() + sizeof(header_used));
                 (*it)->update_footer();
             }
+
             return it;
         }
 
