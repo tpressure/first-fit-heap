@@ -29,30 +29,30 @@
 class memory
 {
 public:
-    virtual size_t base() = 0;
-    virtual size_t size() = 0;
-    virtual size_t end() = 0;
+    virtual size_t base()      = 0;
+    virtual size_t size()      = 0;
+    virtual size_t end()       = 0;
     virtual size_t alignment() = 0;
 };
 
+template<size_t ALIGNMENT>
 class fixed_memory : public memory
 {
 private:
     size_t base_;
     size_t size_;
-    size_t alignment_;
+
 public:
-    fixed_memory(size_t base, size_t size, size_t alignment)
+    fixed_memory(size_t base, size_t size)
         : base_(base)
         , size_(size)
-        , alignment_(alignment)
     {
     }
 
-    virtual size_t base() { return base_; }
-    virtual size_t size() { return size_; };
-    virtual size_t end()  { return base_ + size_; }
-    virtual size_t alignment() { return alignment_; }
+    virtual size_t base()      { return base_; }
+    virtual size_t size()      { return size_; };
+    virtual size_t end()       { return base_ + size_; }
+    virtual size_t alignment() { return ALIGNMENT; }
 };
 
 class first_fit_heap
