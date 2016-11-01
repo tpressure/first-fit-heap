@@ -37,7 +37,6 @@ public:
     virtual size_t size() = 0;
     virtual size_t end() = 0;
     virtual size_t alignment() = 0;
-    virtual bool   expand(size_t new_size) = 0;
 private:
 };
 
@@ -59,7 +58,6 @@ public:
     virtual size_t size() { return size_; };
     virtual size_t end()  { return base_ + size_; }
     virtual size_t alignment() { return alignment_; }
-    virtual bool   expand(size_t new_size) { return false; }
 };
 
 class FirstFirtHeap
@@ -93,7 +91,7 @@ private:
         volatile size_t canary {CANARY_VALUE};
 
     public:
-        header_used(const size_t size_) { size(size_); printf("[%16p, %16p): %lx\n", this+1, following_block(), size_); }
+        header_used(const size_t size_) { size(size_); }
 
         size_t size() const { return raw & ~SIZE_MASK; }
 
@@ -231,7 +229,7 @@ private:
 
             if (other == end()) {
                 // insert at list head
-                printf("here\n");
+                // printf("here\n");
                 val->next(list);
                 val->is_free(true);
                 val->update_footer();
@@ -278,7 +276,7 @@ public:
         assert((mem.base() & (mem.alignment() - 1)) == 0);
         assert((mem.base() + mem.size()) > mem.base());
         
-        printf("memory at %lx+%lx\n", mem.base(), mem.size());
+        // printf("memory at %lx+%lx\n", mem.base(), mem.size());
 
         // auto *root = new(reinterpret_cast<void *>(mem.base())) header_free(mem.size() - sizeof(header_used));
 
@@ -348,7 +346,7 @@ public:
     size_t num_blocks() const
     {
         size_t cnt {0};
-        for (auto elem : free_list) {
+        for (auto __attribute__((unused)) elem : free_list) {
             cnt++;
         }
         return cnt;
@@ -404,17 +402,17 @@ protected:
     iterator try_merge_front(iterator it)
     {
         if (not (*it)->prev_free()) {
-            printf("  %p prev not free\n", (*it)->preceding_block());
+            // printf("  %p prev not free\n", (*it)->preceding_block());
             return it;
         }
 
         auto *preceding = static_cast<header_free *>((*it)->preceding_block());
         if (not preceding) {
-            printf("  no preceding block\n");
+            // printf("  no preceding block\n");
             return it;
         }
 
-        printf("  merging %p with %p\n", preceding, this);
+        // printf("  merging %p with %p\n", preceding, this);
 
         assert(preceding->is_free());
         return try_merge_back({preceding});
