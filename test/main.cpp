@@ -3,10 +3,10 @@
 #include <vector>
 static constexpr size_t PAGE_SIZE {4096};
 
-class TestCtx
+class test_ctx
 {
 public:
-    TestCtx(size_t size, size_t alignment) :
+    test_ctx(size_t size, size_t alignment) :
         ptr_raw(new char [size + alignment]),
         ptr_align(reinterpret_cast<char *>((reinterpret_cast<size_t>(ptr_raw) + alignment - 1) & ~(alignment -1))),
         mem(reinterpret_cast<size_t>(ptr_align), size, alignment),
@@ -14,7 +14,7 @@ public:
     {
     }
 
-    ~TestCtx() { delete[] ptr_raw; }
+    ~test_ctx() { delete[] ptr_raw; }
     
     void *alloc(size_t size) { return heap.alloc(size); };
     void free(void *p) { heap.free(p); }
@@ -33,7 +33,7 @@ TEST_SUITE_START
 
 TEST(simple_alloc_and_free,
 {
-    TestCtx ctx(PAGE_SIZE, 16);
+    test_ctx ctx(PAGE_SIZE, 16);
     
     ctx.free(ctx.alloc(10));
     ASSERT(ctx.heap.num_blocks() == 1);
@@ -47,7 +47,7 @@ TEST(heap_alignment,
     for (auto alignment : align_test) {
         TRACE("alignment: %ld", alignment);
 
-        TestCtx ctx(4 * PAGE_SIZE, alignment);
+        test_ctx ctx(4 * PAGE_SIZE, alignment);
         
         void *ptr = ctx.alloc(alignment);
         size_t addr = reinterpret_cast<size_t>(ptr);
@@ -61,7 +61,7 @@ TEST(heap_alignment,
 TEST(linear_alloc_and_free,
 {
     static constexpr size_t alloc_size {16};
-    TestCtx ctx(PAGE_SIZE, alloc_size);
+    test_ctx ctx(PAGE_SIZE, alloc_size);
 
     std::vector<void *> ptrs;
 

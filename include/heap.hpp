@@ -406,6 +406,7 @@ public:
         header_free *header {reinterpret_cast<header_free *>(reinterpret_cast<char *>(p) - sizeof(header_used))};
 
         ASSERT_HEAP(header->canary_alive());
+        ASSERT_HEAP(not header->is_free());
 
         free_list.insert(header);
     }
