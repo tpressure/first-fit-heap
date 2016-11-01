@@ -23,9 +23,9 @@ public:
 private:
     char *ptr_raw;
     char *ptr_align;
-    Fixed_Memory mem;
+    fixed_memory mem;
 public:
-    FirstFirtHeap heap;
+    first_fit_heap heap;
 
 };
 

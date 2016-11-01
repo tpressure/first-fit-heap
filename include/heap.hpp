@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #pragma once
 
 #include <sys/types.h>
@@ -30,24 +31,23 @@
 #include <cstdio>
 #include <algorithm>
 
-class Memory
+class memory
 {
 public:
     virtual size_t base() = 0;
     virtual size_t size() = 0;
     virtual size_t end() = 0;
     virtual size_t alignment() = 0;
-private:
 };
 
-class Fixed_Memory : public Memory
+class fixed_memory : public memory
 {
 private:
     size_t base_;
     size_t size_;
     size_t alignment_;
 public:
-    Fixed_Memory(size_t base, size_t size, size_t alignment)
+    fixed_memory(size_t base, size_t size, size_t alignment)
         : base_(base)
         , size_(size)
         , alignment_(alignment)
@@ -60,7 +60,7 @@ public:
     virtual size_t alignment() { return alignment_; }
 };
 
-class FirstFirtHeap
+class first_fit_heap
 {
 private:
     class header_free;
@@ -111,6 +111,7 @@ private:
         }
 
         bool is_free() const { return raw & ~THIS_FREE_MASK; }
+
         void is_free(bool val)
         {
             raw &= THIS_FREE_MASK;
@@ -168,7 +169,7 @@ private:
     class free_list_container
     {
     public:
-        free_list_container(Memory &mem_, header_free *root) : mem(mem_), list(root)
+        free_list_container(memory &mem_, header_free *root) : mem(mem_), list(root)
         {
             //assert(is_power_of_two(mem.alignment());
             assert(mem.size() != 0);
@@ -209,6 +210,7 @@ private:
         iterator begin() const { return iterator(list); }
         iterator end()   const { return iterator(); }
 
+    private:
         iterator position_for(header_free *val)
         {
             for (auto elem : *this) {
@@ -218,13 +220,6 @@ private:
             }
 
             return end();
-        }
-
-        iterator insert(header_free *val)
-        {
-            auto pos  = position_for(val);
-            auto elem = insert_after(val, pos);
-            return try_merge_front(try_merge_back(elem));
         }
 
         iterator insert_after(header_free *val, iterator other)
@@ -294,94 +289,100 @@ private:
                 return it;
             }
 
-        // printf("  merging %p with %p\n", preceding, this);
+            // printf("  merging %p with %p\n", preceding, this);
 
-        assert(preceding->is_free());
-        return try_merge_back({preceding});
-    }
+            assert(preceding->is_free());
+            return try_merge_back({preceding});
+        }
 
-    const size_t min_block_size = sizeof(header_free) - sizeof(header_used) + sizeof(footer) ;
+        const size_t min_block_size = sizeof(header_free) - sizeof(header_used) + sizeof(footer) ;
 
-    size_t align(size_t size)
-    {
-        size_t real_size {(size + mem.alignment() - 1) & ~(mem.alignment() - 1)};
-        return std::max(min_block_size, real_size);
-    }
-
-    bool fits(header_free &block, size_t size)
-    {
-        assert(size >= min_block_size);
-        return block.size() >= size;
-    }
-
-    iterator first_free(size_t size, iterator &before)
-    {
-        iterator before_ = end();
-
-        for (auto elem : *this)
+        size_t align(size_t size)
         {
-            assert(elem->canary_alive());
+            size_t real_size {(size + mem.alignment() - 1) & ~(mem.alignment() - 1)};
+            return std::max(min_block_size, real_size);
+        }
 
-            if (fits(*elem, size)) {
-                before = before_;
-                return {elem};
+        bool fits(header_free &block, size_t size)
+        {
+            assert(size >= min_block_size);
+            return block.size() >= size;
+        }
+
+        iterator first_free(size_t size, iterator &before)
+        {
+            iterator before_ = end();
+
+            for (auto elem : *this) {
+                assert(elem->canary_alive());
+
+                if (fits(*elem, size)) {
+                    before = before_;
+                    return {elem};
+                }
+                before_ = iterator(elem);
             }
-            before_ = iterator(elem);
+
+            return {};
         }
 
-        return {};
-    }
-
-
-    header_used *alloc(size_t size)
-    {
-        if (size == 0) {
-            return nullptr;
+    public:
+        iterator insert(header_free *val)
+        {
+            auto pos  = position_for(val);
+            auto elem = insert_after(val, pos);
+            return try_merge_front(try_merge_back(elem));
         }
 
-        size = align(size);
 
-        iterator prev;
-        auto it = first_free(size, prev);
+        header_used *alloc(size_t size)
+        {
+            if (size == 0) {
+                return nullptr;
+            }
 
-        if (it == end()) {
-            return nullptr;
+            size = align(size);
+
+            iterator prev;
+            auto it = first_free(size, prev);
+
+            if (it == end()) {
+                return nullptr;
+            }
+
+            auto  &block          = **it;
+            size_t size_remaining = block.size() - size;
+
+            if (size_remaining < (sizeof(header_free) + sizeof(footer))) {
+                // remaining size cannot hold another block, use entire space
+                size += size_remaining;
+            } else {
+                // split block into two
+                block.size(size);
+                block.update_footer();
+                auto *new_block = new (block.following_block()) header_free(size_remaining - sizeof(header_used));
+                new_block->next(block.next());
+                new_block->prev_free(true);
+                block.next(new_block);
+            }
+
+            if (*prev) {
+                (*prev)->next(block.next());
+            } else {
+                list = block.next();
+            }
+
+            auto *following = block.following_block();
+            if (following) {
+                following->prev_free(false);
+            }
+
+            block.is_free(false);
+            return &block;
         }
-        
-        auto  &block          = **it;
-        size_t size_remaining = block.size() - size;
-
-        if (size_remaining < (sizeof(header_free) + sizeof(footer))) {
-            // remaining size cannot hold another block, use entire space
-            size += size_remaining;
-        } else {
-            // split block into two
-            block.size(size);
-            block.update_footer();
-            auto *new_block = new (block.following_block()) header_free(size_remaining - sizeof(header_used));
-            new_block->next(block.next());
-            new_block->prev_free(true);
-            block.next(new_block);
-        }
-
-        if (*prev) {
-            (*prev)->next(block.next());
-        } else {
-            list = block.next();
-        }
-
-        auto *following = block.following_block();
-        if (following) {
-            following->prev_free(false);
-        }
-
-        block.is_free(false);
-        return &block;
-    }
-
 
     private:
-        Memory &mem;
+        memory &mem;
         header_free *list;
     };
 
@@ -389,7 +390,7 @@ private:
     free_list_container free_list;
 
 public:
-    FirstFirtHeap(Memory &mem_) : free_list(mem_, new(reinterpret_cast<void *>(mem_.base())) header_free(mem_.size() - sizeof(header_used)))
+    first_fit_heap(memory &mem_) : free_list(mem_, new(reinterpret_cast<void *>(mem_.base())) header_free(mem_.size() - sizeof(header_used)))
     {
     }
 
@@ -437,9 +438,5 @@ public:
 
         return size;
     }
-
-protected:
-    using iterator = free_list_container::iterator;
-
 };
 
