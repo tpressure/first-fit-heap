@@ -297,19 +297,19 @@ private:
 
         const size_t min_block_size = sizeof(header_free) - sizeof(header_used) + sizeof(footer) ;
 
-        size_t align(size_t size)
+        size_t align(size_t size) const
         {
             size_t real_size {(size + mem.alignment() - 1) & ~(mem.alignment() - 1)};
             return std::max(min_block_size, real_size);
         }
 
-        bool fits(header_free &block, size_t size)
+        bool fits(header_free &block, size_t size) const
         {
             assert(size >= min_block_size);
             return block.size() >= size;
         }
 
-        iterator first_free(size_t size, iterator &before)
+        iterator first_free(size_t size, iterator &before) const
         {
             iterator before_ = end();
 
@@ -394,7 +394,7 @@ public:
     {
     }
 
-    void dump()
+    void dump() const
     {
         for (auto block : free_list) {
             printf("[%p, %p) -> ", block, block->following_block());
