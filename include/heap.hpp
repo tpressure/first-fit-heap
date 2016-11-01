@@ -136,6 +136,8 @@ private:
 
             return prev_footer->header();
         }
+
+        void *data_ptr() { return this+1; }
     };
 
     class header_free : public header_used
@@ -146,8 +148,6 @@ private:
             update_footer();
             is_free(true);
         }
-
-        void *data_ptr() { return &next_; }
 
         header_free *next() const { return next_; }
         void         next(header_free *val) { next_ = val; }
@@ -168,7 +168,13 @@ private:
     class free_list_container
     {
     public:
-        free_list_container(header_free *root) : list(root) {}
+        free_list_container(Memory &mem_, header_free *root) : mem(mem_), list(root)
+        {
+            //assert(is_power_of_two(mem.alignment());
+            assert(mem.size() != 0);
+            assert((mem.base() & (mem.alignment() - 1)) == 0);
+            assert((mem.base() + mem.size()) > mem.base());
+        }
 
         class iterator
         {
@@ -227,6 +233,8 @@ private:
             if (not val) {
                 return {};
             }
+
+            assert(val > *other);
 
             if (other == end()) {
                 // insert at list head
@@ -292,39 +300,51 @@ private:
         return try_merge_back({preceding});
     }
 
-    private:
-        header_free *list;
-    };
+    const size_t min_block_size = sizeof(header_free) - sizeof(header_used) + sizeof(footer) ;
 
-private:
-    Memory &mem;
-    free_list_container free_list;
-
-public:
-    FirstFirtHeap(Memory &mem_) : mem(mem_), free_list(new(reinterpret_cast<void *>(mem.base())) header_free(mem.size() - sizeof(header_used)))
+    size_t align(size_t size)
     {
-        //assert(is_power_of_two(mem.alignment());
-        assert(mem.size() != 0);
-        assert((mem.base() & (mem.alignment() - 1)) == 0);
-        assert((mem.base() + mem.size()) > mem.base());
+        size_t real_size {(size + mem.alignment() - 1) & ~(mem.alignment() - 1)};
+        return std::max(min_block_size, real_size);
     }
 
-    void dump()
+    bool fits(header_free &block, size_t size)
     {
-        for (auto block : free_list) {
-            printf("[%p, %p) -> ", block, block->following_block());
+        assert(size >= min_block_size);
+        return block.size() >= size;
+    }
+
+    iterator first_free(size_t size, iterator &before)
+    {
+        iterator before_ = end();
+
+        for (auto elem : *this)
+        {
+            assert(elem->canary_alive());
+
+            if (fits(*elem, size)) {
+                before = before_;
+                return {elem};
+            }
+            before_ = iterator(elem);
         }
-        printf("\n");
+
+        return {};
     }
 
-    void *alloc(size_t size)
+
+    header_used *alloc(size_t size)
     {
+        if (size == 0) {
+            return nullptr;
+        }
+
         size = align(size);
 
         iterator prev;
         auto it = first_free(size, prev);
 
-        if (it == free_list.end()) {
+        if (it == end()) {
             return nullptr;
         }
         
@@ -347,7 +367,7 @@ public:
         if (*prev) {
             (*prev)->next(block.next());
         } else {
-            free_list = block.next();
+            list = block.next();
         }
 
         auto *following = block.following_block();
@@ -356,7 +376,35 @@ public:
         }
 
         block.is_free(false);
-        return block.data_ptr();
+        return &block;
+    }
+
+
+    private:
+        Memory &mem;
+        header_free *list;
+    };
+
+private:
+    free_list_container free_list;
+
+public:
+    FirstFirtHeap(Memory &mem_) : free_list(mem_, new(reinterpret_cast<void *>(mem_.base())) header_free(mem_.size() - sizeof(header_used)))
+    {
+    }
+
+    void dump()
+    {
+        for (auto block : free_list) {
+            printf("[%p, %p) -> ", block, block->following_block());
+        }
+        printf("\n");
+    }
+
+    void *alloc(size_t size)
+    {
+        auto *block = free_list.alloc(size);
+        return block ? block->data_ptr() : nullptr;
     }
 
     void free(void *p)
@@ -392,38 +440,6 @@ public:
 
 protected:
     using iterator = free_list_container::iterator;
-
-    const size_t min_block_size = sizeof(header_free) - sizeof(header_used) + sizeof(footer) ;
-
-    size_t align(size_t size)
-    {
-        size_t real_size {(size + mem.alignment() - 1) & ~(mem.alignment() - 1)};
-        return std::max(min_block_size, real_size);
-    }
-
-    bool fits(header_free &block, size_t size)
-    {
-        assert(size >= min_block_size);
-        return block.size() >= size;
-    }
-
-    iterator first_free(size_t size, iterator &before)
-    {
-        iterator before_ = free_list.end();
-
-        for (auto elem : free_list)
-        {
-            assert(elem->canary_alive());
-
-            if (fits(*elem, size)) {
-                before = before_;
-                return {elem};
-            }
-            before_ = iterator(elem);
-        }
-
-        return {};
-    }
 
 };
 
