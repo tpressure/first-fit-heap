@@ -24,12 +24,7 @@
 
 #pragma once
 
-#include <sys/types.h>
-#include <assert.h>
-#include <stdint.h>
-#include <new>
-#include <cstdio>
-#include <algorithm>
+#include "heap_config.hpp"
 
 class memory
 {
@@ -91,13 +86,16 @@ private:
         volatile size_t canary {CANARY_VALUE};
 
     public:
-        header_used(const size_t size_) { size(size_); }
+        header_used(const size_t size_)
+        {
+            size(size_);
+        }
 
         size_t size() const { return raw & ~SIZE_MASK; }
 
         void size(size_t s)
         {
-            assert((s & ~SIZE_MASK) == s);
+            ASSERT_HEAP((s & ~SIZE_MASK) == s);
             raw &= SIZE_MASK;
             raw |= s & ~SIZE_MASK;
         }
@@ -171,10 +169,11 @@ private:
     public:
         free_list_container(memory &mem_, header_free *root) : mem(mem_), list(root)
         {
-            //assert(is_power_of_two(mem.alignment());
-            assert(mem.size() != 0);
-            assert((mem.base() & (mem.alignment() - 1)) == 0);
-            assert((mem.base() + mem.size()) > mem.base());
+            ASSERT_HEAP(mem.alignment() != 0);
+            ASSERT_HEAP(not (mem.alignment() & (mem.alignment() - 1)));
+            ASSERT_HEAP(mem.size() != 0);
+            ASSERT_HEAP((mem.base() & (mem.alignment() - 1)) == 0);
+            ASSERT_HEAP((mem.base() + mem.size()) > mem.base());
         }
 
         class iterator
@@ -185,6 +184,7 @@ private:
             iterator &operator++()
             {
                 block = block->next();
+                ASSERT_HEAP(block ? block->canary_alive() : true);
                 return *this;
             }
 
@@ -224,16 +224,14 @@ private:
 
         iterator insert_after(header_free *val, iterator other)
         {
-            // printf("insert %p at %p next: %p\n", val, *other, *other ? (*other)->next() : (header_free*)0xaffe);
             if (not val) {
                 return {};
             }
 
-            assert(val > *other);
+            ASSERT_HEAP(val > *other);
 
             if (other == end()) {
                 // insert at list head
-                // printf("here\n");
                 val->next(list);
                 val->is_free(true);
                 val->update_footer();
@@ -245,7 +243,7 @@ private:
                 val->is_free(true);
                 val->update_footer();
 
-                assert(val != *other);
+                ASSERT_HEAP(val != *other);
                 (*other)->next(val);
             }
 
@@ -279,19 +277,15 @@ private:
         iterator try_merge_front(iterator it)
         {
             if (not (*it)->prev_free()) {
-                // printf("  %p prev not free\n", (*it)->preceding_block());
                 return it;
             }
 
             auto *preceding = static_cast<header_free *>((*it)->preceding_block());
             if (not preceding) {
-                // printf("  no preceding block\n");
                 return it;
             }
 
-            // printf("  merging %p with %p\n", preceding, this);
-
-            assert(preceding->is_free());
+            ASSERT_HEAP(preceding->is_free());
             return try_merge_back({preceding});
         }
 
@@ -300,12 +294,12 @@ private:
         size_t align(size_t size) const
         {
             size_t real_size {(size + mem.alignment() - 1) & ~(mem.alignment() - 1)};
-            return std::max(min_block_size, real_size);
+            return HEAP_MAX(min_block_size, real_size);
         }
 
         bool fits(header_free &block, size_t size) const
         {
-            assert(size >= min_block_size);
+            ASSERT_HEAP(size >= min_block_size);
             return block.size() >= size;
         }
 
@@ -314,8 +308,6 @@ private:
             iterator before_ = end();
 
             for (auto elem : *this) {
-                assert(elem->canary_alive());
-
                 if (fits(*elem, size)) {
                     before = before_;
                     return {elem};
@@ -394,6 +386,7 @@ public:
     {
     }
 
+    //XXX: remove this
     void dump() const
     {
         for (auto block : free_list) {
@@ -412,7 +405,7 @@ public:
     {
         header_free *header {reinterpret_cast<header_free *>(reinterpret_cast<char *>(p) - sizeof(header_used))};
 
-        assert(header->canary_alive());
+        ASSERT_HEAP(header->canary_alive());
 
         free_list.insert(header);
     }
@@ -439,4 +432,3 @@ public:
         return size;
     }
 };
-
