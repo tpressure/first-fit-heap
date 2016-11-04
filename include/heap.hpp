@@ -190,7 +190,6 @@ private:
             ASSERT_HEAP(ALIGNMENT != 0);
             ASSERT_HEAP(ALIGNMENT >= min_alignment());
             ASSERT_HEAP((ALIGNMENT & (ALIGNMENT - 1)) == 0);
-            printf("%ld %ld\n", sizeof(header_used), ALIGNMENT);
             ASSERT_HEAP(sizeof(header_used) == ALIGNMENT);
             ASSERT_HEAP(mem.size() != 0);
             ASSERT_HEAP((mem.base() & (ALIGNMENT - 1)) == 0);

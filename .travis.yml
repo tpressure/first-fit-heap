@@ -20,5 +20,5 @@ addons:
 
 script:
   - cd test
-  - make
-  - ./heap_test
+  - make heap_test_travis
+  - ./heap_test_travis
