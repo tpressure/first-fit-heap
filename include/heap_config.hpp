@@ -57,3 +57,4 @@
 #endif
 
 #define HEAP_PACKED __attribute__((packed))
+#define HEAP_UNUSED __attribute__((unused))

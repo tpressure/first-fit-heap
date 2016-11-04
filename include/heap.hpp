@@ -57,13 +57,15 @@ class first_fit_heap
 {
 private:
 
+    static constexpr size_t min_alignment() { return 16; }
+
     struct empty {};
     template <size_t, bool, class T>
     struct align_helper : public T {};
 
     template <size_t SIZE, class T>
     struct HEAP_PACKED align_helper<SIZE, true, T> : public T {
-        char align_chars[SIZE - 16];
+        char align_chars[SIZE - min_alignment()];
     };
 
     template <size_t MIN, size_t SIZE>
@@ -77,7 +79,10 @@ private:
         size_t size() const { return s; }
 
         void size(size_t size) { s = size; }
-        header_free* header()  { return reinterpret_cast<header_free*>(reinterpret_cast<char *>(this) + sizeof(footer) - size() - sizeof(header_used)); }
+
+        header_free* header() {
+            return reinterpret_cast<header_free*>(reinterpret_cast<char *>(this) + sizeof(footer) - size() - sizeof(header_used));
+        }
 
     private:
         size_t s;
@@ -93,7 +98,7 @@ private:
             CANARY_VALUE   = 0x1337133713371337ul,
         };
 
-        size_t raw;
+        size_t raw {0};
         volatile size_t canary {CANARY_VALUE};
 
     public:
@@ -143,9 +148,8 @@ private:
             }
 
             footer *prev_footer = reinterpret_cast<footer *>(reinterpret_cast<char *>(this) - sizeof(footer));
-            if (reinterpret_cast<size_t>(prev_footer) <= mem.base()) {
-                return nullptr;
-            }
+
+            ASSERT_HEAP(reinterpret_cast<size_t>(prev_footer) > mem.base());
 
             return prev_footer->header();
         }
@@ -184,7 +188,10 @@ private:
         free_list_container(memory &mem_, header_free *root) : mem(mem_), list(root)
         {
             ASSERT_HEAP(ALIGNMENT != 0);
+            ASSERT_HEAP(ALIGNMENT >= min_alignment());
             ASSERT_HEAP((ALIGNMENT & (ALIGNMENT - 1)) == 0);
+            printf("%ld %ld\n", sizeof(header_used), ALIGNMENT);
+            ASSERT_HEAP(sizeof(header_used) == ALIGNMENT);
             ASSERT_HEAP(mem.size() != 0);
             ASSERT_HEAP((mem.base() & (ALIGNMENT - 1)) == 0);
             ASSERT_HEAP((mem.base() + mem.size()) > mem.base());
@@ -296,17 +303,17 @@ private:
             return try_merge_back({preceding});
         }
 
-        const size_t min_block_size = sizeof(header_free) - sizeof(header_used) + sizeof(footer) ;
+        static constexpr size_t min_block_size() { return sizeof(header_free) - sizeof(header_used) + sizeof(footer); }
 
         size_t align(size_t size) const
         {
             size_t real_size {(size + ALIGNMENT - 1) & ~(ALIGNMENT - 1)};
-            return HEAP_MAX(min_block_size, real_size);
+            return HEAP_MAX(min_block_size(), real_size);
         }
 
         bool fits(header_free &block, size_t size) const
         {
-            ASSERT_HEAP(size >= min_block_size);
+            ASSERT_HEAP(size >= min_block_size());
             return block.size() >= size;
         }
 
@@ -393,15 +400,6 @@ public:
     {
     }
 
-    //XXX: remove this
-    void dump() const
-    {
-        // for (auto block : free_list) {
-            // printf("[%p, %p) -> ", block, block->following_block(mem));
-        // }
-        // printf("\n");
-    }
-
     void *alloc(size_t size)
     {
         auto *block = free_list.alloc(size);
@@ -422,7 +420,7 @@ public:
     {
         size_t cnt {0};
 
-        for (auto __attribute__((unused)) elem : free_list) {
+        for (auto HEAP_UNUSED elem : free_list) {
             cnt++;
         }
 
