@@ -25,8 +25,8 @@ private:
     char *ptr_raw;
     char *ptr_align;
 public:
-    fixed_memory<ALIGNMENT> mem;
-    first_fit_heap heap;
+    fixed_memory mem;
+    first_fit_heap<ALIGNMENT> heap;
 
 };
 
@@ -34,7 +34,7 @@ template<class CTX>
 static bool check_alignment()
 {
     CTX ctx(PAGE_SIZE);
-    const size_t alignment {ctx.mem.alignment()};
+    const size_t alignment {ctx.heap.alignment()};
     TRACE("alignment: %ld", alignment);
 
     void *ptr = ctx.alloc(alignment);

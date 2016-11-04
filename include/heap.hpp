@@ -29,13 +29,11 @@
 class memory
 {
 public:
-    virtual size_t base()      = 0;
-    virtual size_t size()      = 0;
-    virtual size_t end()       = 0;
-    virtual size_t alignment() = 0;
+    virtual size_t base() const = 0;
+    virtual size_t size() const = 0;
+    virtual size_t end()  const = 0;
 };
 
-template<size_t ALIGNMENT>
 class fixed_memory : public memory
 {
 private:
@@ -49,12 +47,12 @@ public:
     {
     }
 
-    virtual size_t base()      { return base_; }
-    virtual size_t size()      { return size_; };
-    virtual size_t end()       { return base_ + size_; }
-    virtual size_t alignment() { return ALIGNMENT; }
+    virtual size_t base() const { return base_; }
+    virtual size_t size() const { return size_; };
+    virtual size_t end()  const { return base_ + size_; }
 };
 
+template<size_t ALIGNMENT>
 class first_fit_heap
 {
 private:
@@ -115,20 +113,26 @@ private:
 
         bool canary_alive() { return canary == CANARY_VALUE; }
 
-        header_used *following_block()
+        header_used *following_block(const memory &mem)
         {
-            //XXX: sanity checking
-            return reinterpret_cast<header_used *>(reinterpret_cast<char *>(this) + sizeof(header_used) + size());
+            auto *following = reinterpret_cast<header_used *>(reinterpret_cast<char *>(this) + sizeof(header_used) + size());
+            if (reinterpret_cast<size_t>(following) >= mem.end()) {
+                return nullptr;
+            }
+
+            return following;
         }
 
-        header_used *preceding_block()
+        header_used *preceding_block(const memory& mem)
         {
             if (not prev_free()) {
                 return nullptr;
             }
 
-            //XXX: sanity checking
             footer *prev_footer = reinterpret_cast<footer *>(reinterpret_cast<char *>(this) - sizeof(footer));
+            if (reinterpret_cast<size_t>(prev_footer) <= mem.base()) {
+                return nullptr;
+            }
 
             return prev_footer->header();
         }
@@ -142,7 +146,7 @@ private:
         header_free(const size_t size) : header_used(size)
         {
             update_footer();
-            is_free(true);
+            this->is_free(true);
         }
 
         header_free *next() const { return next_; }
@@ -150,12 +154,12 @@ private:
 
         footer *get_footer()
         {
-            return reinterpret_cast<footer *>(reinterpret_cast<char *>(this) + sizeof(header_used) + size() - sizeof(footer));
+            return reinterpret_cast<footer *>(reinterpret_cast<char *>(this) + sizeof(header_used) + this->size() - sizeof(footer));
         }
 
         void update_footer()
         {
-            get_footer()->size(size());
+            get_footer()->size(this->size());
         }
 
         header_free *next_ {nullptr};
@@ -166,10 +170,10 @@ private:
     public:
         free_list_container(memory &mem_, header_free *root) : mem(mem_), list(root)
         {
-            ASSERT_HEAP(mem.alignment() != 0);
-            ASSERT_HEAP(not (mem.alignment() & (mem.alignment() - 1)));
+            ASSERT_HEAP(ALIGNMENT != 0);
+            ASSERT_HEAP(not (ALIGNMENT & (ALIGNMENT - 1)));
             ASSERT_HEAP(mem.size() != 0);
-            ASSERT_HEAP((mem.base() & (mem.alignment() - 1)) == 0);
+            ASSERT_HEAP((mem.base() & (ALIGNMENT - 1)) == 0);
             ASSERT_HEAP((mem.base() + mem.size()) > mem.base());
         }
 
@@ -236,8 +240,8 @@ private:
             }
 
             // update meta data of surrounding blocks
-            auto       *following = val->following_block();
-            const auto *preceding = val->preceding_block();
+            auto       *following = val->following_block(mem);
+            const auto *preceding = val->preceding_block(mem);
 
             if (following) {
                 following->prev_free(true);
@@ -252,7 +256,7 @@ private:
 
         iterator try_merge_back(iterator it)
         {
-            auto *following = (*it)->following_block();
+            auto *following = (*it)->following_block(mem);
 
             if (following and following->is_free()) {
                 auto *following_free = static_cast<header_free*>(following);
@@ -270,7 +274,7 @@ private:
                 return it;
             }
 
-            auto *preceding = static_cast<header_free *>((*it)->preceding_block());
+            auto *preceding = static_cast<header_free *>((*it)->preceding_block(mem));
             if (not preceding) {
                 return it;
             }
@@ -283,7 +287,7 @@ private:
 
         size_t align(size_t size) const
         {
-            size_t real_size {(size + mem.alignment() - 1) & ~(mem.alignment() - 1)};
+            size_t real_size {(size + ALIGNMENT - 1) & ~(ALIGNMENT - 1)};
             return HEAP_MAX(min_block_size, real_size);
         }
 
@@ -342,7 +346,7 @@ private:
                 // split block into two
                 block.size(size);
                 block.update_footer();
-                auto *new_block = new (block.following_block()) header_free(size_remaining - sizeof(header_used));
+                auto *new_block = new (block.following_block(mem)) header_free(size_remaining - sizeof(header_used));
                 new_block->next(block.next());
                 new_block->prev_free(true);
                 block.next(new_block);
@@ -354,7 +358,7 @@ private:
                 list = block.next();
             }
 
-            auto *following = block.following_block();
+            auto *following = block.following_block(mem);
             if (following) {
                 following->prev_free(false);
             }
@@ -379,10 +383,10 @@ public:
     //XXX: remove this
     void dump() const
     {
-        for (auto block : free_list) {
-            printf("[%p, %p) -> ", block, block->following_block());
-        }
-        printf("\n");
+        // for (auto block : free_list) {
+            // printf("[%p, %p) -> ", block, block->following_block(mem));
+        // }
+        // printf("\n");
     }
 
     void *alloc(size_t size)
@@ -422,4 +426,6 @@ public:
 
         return size;
     }
+
+    constexpr size_t alignment() const { return ALIGNMENT; }
 };
