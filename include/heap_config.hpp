@@ -55,3 +55,5 @@
 #else
     #define ASSERT_HEAP(cond) ;
 #endif
+
+#define HEAP_PACKED __attribute__((packed))

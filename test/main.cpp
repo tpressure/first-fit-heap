@@ -62,7 +62,7 @@ TEST(heap_alignment,
     ASSERT(check_alignment<test_ctx<32>>());
     ASSERT(check_alignment<test_ctx<64>>());
     ASSERT(check_alignment<test_ctx<128>>());
-    ASSERT(check_alignment<test_ctx<258>>());
+    ASSERT(check_alignment<test_ctx<256>>());
     ASSERT(check_alignment<test_ctx<1024>>());
     return TEST_SUCCESS;
 });

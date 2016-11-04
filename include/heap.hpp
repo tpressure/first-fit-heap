@@ -56,6 +56,19 @@ template<size_t ALIGNMENT>
 class first_fit_heap
 {
 private:
+
+    struct empty {};
+    template <size_t, bool, class T>
+    struct align_helper : public T {};
+
+    template <size_t SIZE, class T>
+    struct HEAP_PACKED align_helper<SIZE, true, T> : public T {
+        char align_chars[SIZE - 16];
+    };
+
+    template <size_t MIN, size_t SIZE>
+    using prepend_alignment_if_greater = align_helper<SIZE, (SIZE > MIN), empty>;
+
     class header_free;
     class header_used;
 
@@ -70,7 +83,7 @@ private:
         size_t s;
     };
 
-    class header_used
+    class HEAP_PACKED header_used : private prepend_alignment_if_greater<16, ALIGNMENT>
     {
     private:
         enum {
@@ -140,7 +153,7 @@ private:
         void *data_ptr() { return this+1; }
     };
 
-    class header_free : public header_used
+    class HEAP_PACKED header_free : public header_used
     {
     public:
         header_free(const size_t size) : header_used(size)
@@ -171,7 +184,7 @@ private:
         free_list_container(memory &mem_, header_free *root) : mem(mem_), list(root)
         {
             ASSERT_HEAP(ALIGNMENT != 0);
-            ASSERT_HEAP(not (ALIGNMENT & (ALIGNMENT - 1)));
+            ASSERT_HEAP((ALIGNMENT & (ALIGNMENT - 1)) == 0);
             ASSERT_HEAP(mem.size() != 0);
             ASSERT_HEAP((mem.base() & (ALIGNMENT - 1)) == 0);
             ASSERT_HEAP((mem.base() + mem.size()) > mem.base());
