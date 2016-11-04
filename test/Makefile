@@ -1,4 +1,4 @@
-CXXFLAGS = -I../include -std=c++11 -O2 -Wall -Wextra -Werror -DHEAP_ENABLE_ASSERT -DHEAP_LINUX
+CXXFLAGS = -I../include -std=c++11 -O2 -Wall -Wextra -Werror -DHEAP_ENABLE_ASSERT -DHEAP_LINUX -fsanitize=address -fsanitize=undefined
 
 default: heap_test
 
