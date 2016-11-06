@@ -1,6 +1,7 @@
 #include "test.hpp"
 #include <heap.hpp>
 #include <vector>
+#include <string.h>
 static constexpr size_t PAGE_SIZE {4096};
 
 template<size_t ALIGNMENT = 16>
@@ -43,6 +44,45 @@ static bool check_alignment()
     return ((addr & (alignment - 1)) == 0);
 }
 
+template<size_t ALIGNMENT, class ON_PTR_ALLOC_FN, class ON_PTR_FREE_FN>
+bool generic_alloc_and_free(ON_PTR_ALLOC_FN ptr_alloc_fn,
+                            ON_PTR_FREE_FN ptr_free_fn,
+                            size_t alloc_size = ALIGNMENT
+                            )
+{
+    test_ctx<> ctx(32 * PAGE_SIZE);
+
+    std::vector<void *> ptrs;
+
+    size_t init_size {ctx.heap.free_mem()};
+    void  *p {nullptr};
+
+    for (unsigned pass = 0; pass < 10; pass++) {
+        while((p = ctx.alloc(alloc_size))) {
+            ptrs.push_back(p);
+            if (TEST_FAILED == ptr_alloc_fn(p, alloc_size)) {
+                return TEST_FAILED;
+            }
+        }
+
+        if (ctx.heap.num_blocks() > 1) { return TEST_FAILED; }
+
+        while (ptrs.size() > 0) {
+            if (TEST_FAILED == ptr_free_fn(ptrs.back(), alloc_size)) {
+                return TEST_FAILED;
+            }
+
+            ctx.free(ptrs.back());
+            ptrs.pop_back();
+        }
+
+        if (ctx.heap.free_mem() != init_size) {
+            return TEST_FAILED;
+        }
+    }
+
+    return TEST_SUCCESS;
+}
 
 TEST_SUITE_START
 
@@ -69,29 +109,40 @@ TEST(heap_alignment,
 
 TEST(linear_alloc_and_free,
 {
-    static constexpr size_t alloc_size {16};
-    test_ctx<> ctx(PAGE_SIZE);
+    auto after_alloc = [](void *p, size_t size) {
+        memset(p, 0xf, size);
+        return TEST_SUCCESS;
+    };
 
-    std::vector<void *> ptrs;
-
-    size_t init_size {ctx.heap.free_mem()};
-    void  *p {nullptr};
-
-    for (unsigned pass = 0; pass < 10; pass++) {
-        TRACE("PASS (%d/%d)", pass+1, 10);
-        while((p = ctx.alloc(alloc_size))) {
-            ptrs.push_back(p);
+    auto before_free = [](void *p, size_t size) {
+        char *ptr = reinterpret_cast<char *>(p);
+        for (size_t i = 0; i < size; i++) {
+            if (ptr[i] != 0xf) {
+                TRACE("pointer mismatch at %zd: %c vs %c", i, ptr[i], 0xf);
+                return TEST_FAILED;
+            }
         }
 
-        ASSERT(ctx.heap.num_blocks() == 0);
+        return TEST_SUCCESS;
+    };
 
-        while (ptrs.size() > 0) {
-            ctx.free(ptrs.back());
-            ptrs.pop_back();
-        }
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free));
+    ASSERT(generic_alloc_and_free<32>(after_alloc, before_free));
+    ASSERT(generic_alloc_and_free<64>(after_alloc, before_free));
+    ASSERT(generic_alloc_and_free<256>(after_alloc, before_free));
+    ASSERT(generic_alloc_and_free<1024>(after_alloc, before_free));
+    ASSERT(generic_alloc_and_free<2048>(after_alloc, before_free));
+    ASSERT(generic_alloc_and_free<4096>(after_alloc, before_free));
 
-        ASSERT(ctx.heap.free_mem() == init_size);
-    }
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 32));
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 64));
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 128));
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 256));
+
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 31));
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 60));
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 129));
+    ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 277));
 
     return TEST_SUCCESS;
 });

@@ -7,14 +7,15 @@ static constexpr bool TEST_FAILED  {false};
 #define TEST_SUITE_START   \
     int main(int, char **) \
     {                      \
-        bool ok {false};
+        bool ok {true};
 
-#define TEST_SUITE_END     \
+#define TEST_SUITE_END      \
+        return ok ? 0 : -1; \
     }
 
 #define TEST(name, ...)                  \
     auto test_##name = []() __VA_ARGS__; \
-    ok = test_##name();                  \
+    ok &= test_##name();                  \
     printf("[%s] " #name "\n", ok ? "  OK  " : "FAILED");
 
 #define ASSERT(x)                             \
