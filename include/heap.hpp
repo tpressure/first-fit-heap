@@ -386,6 +386,11 @@ private:
             return &block;
         }
 
+        bool ptr_in_range(void *p)
+        {
+            return reinterpret_cast<size_t>(p) >= mem.base() and reinterpret_cast<size_t>(p) < mem.end();
+        }
+
     private:
         memory &mem;
         header_free *list;
@@ -408,6 +413,10 @@ public:
     void free(void *p)
     {
         header_free *header {reinterpret_cast<header_free *>(reinterpret_cast<char *>(p) - sizeof(header_used))};
+
+        if (not p or not free_list.ptr_in_range(header)) {
+            return;
+        }
 
         ASSERT_HEAP(header->canary_alive());
         ASSERT_HEAP(not header->is_free());
