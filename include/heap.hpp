@@ -343,7 +343,7 @@ private:
         header_used *alloc(size_t size)
         {
             if (size == 0) {
-                return nullptr;
+                size = ALIGNMENT;
             }
 
             size = align(size);
