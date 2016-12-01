@@ -86,6 +86,16 @@ bool generic_alloc_and_free(ON_PTR_ALLOC_FN ptr_alloc_fn,
 
 TEST_SUITE_START
 
+TEST(zero_alloc_should_not_return_nullptr,
+{
+    test_ctx<> ctx(PAGE_SIZE);
+
+    void *ptr = ctx.alloc(0);
+    ASSERT(ptr != nullptr);
+
+    return TEST_SUCCESS;
+});
+
 TEST(simple_alloc_and_free,
 {
     test_ctx<> ctx(PAGE_SIZE);
