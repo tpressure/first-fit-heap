@@ -342,10 +342,7 @@ private:
 
         header_used *alloc(size_t size)
         {
-            if (size == 0) {
-                size = ALIGNMENT;
-            }
-
+            size = HEAP_MAX(size, ALIGNMENT);
             size = align(size);
 
             iterator prev;
