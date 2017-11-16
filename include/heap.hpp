@@ -29,6 +29,8 @@
 class memory
 {
 public:
+    virtual ~memory() {}
+
     virtual size_t base() const = 0;
     virtual size_t size() const = 0;
     virtual size_t end()  const = 0;
