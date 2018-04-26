@@ -54,12 +54,13 @@ public:
     virtual size_t end()  const { return base_ + size_; }
 };
 
-template<size_t ALIGNMENT>
+static constexpr size_t HEAP_MIN_ALIGNMENT = 16;
+
+template<size_t ALIGNMENT = HEAP_MIN_ALIGNMENT>
 class first_fit_heap
 {
 private:
-
-    static constexpr size_t min_alignment() { return 16; }
+    static constexpr size_t min_alignment() { return HEAP_MIN_ALIGNMENT; }
 
     struct empty {};
     template <size_t, bool, class T>
