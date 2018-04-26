@@ -17,7 +17,7 @@ public:
     }
 
     ~test_ctx() { delete[] ptr_raw; }
-    
+
     void *alloc(size_t size) { return heap.alloc(size); };
     void free(void *p) { heap.free(p); }
 
@@ -99,7 +99,7 @@ TEST(zero_alloc_should_not_return_nullptr,
 TEST(simple_alloc_and_free,
 {
     test_ctx<> ctx(PAGE_SIZE);
-    
+
     ctx.free(ctx.alloc(10));
     ASSERT(ctx.heap.num_blocks() == 1);
 
@@ -154,6 +154,16 @@ TEST(linear_alloc_and_free,
     ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 129));
     ASSERT(generic_alloc_and_free<16>(after_alloc, before_free, 277));
 
+    return TEST_SUCCESS;
+});
+
+TEST(heap_has_valid_default_alignment,
+{
+    __attribute__((aligned(HEAP_MIN_ALIGNMENT))) char buffer[1024];
+
+    fixed_memory mem(size_t(buffer), 1024);
+    first_fit_heap<> heap(mem);
+    ASSERT(heap.alignment() == HEAP_MIN_ALIGNMENT);
     return TEST_SUCCESS;
 });
 
