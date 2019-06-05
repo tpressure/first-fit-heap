@@ -10,7 +10,7 @@ class test_ctx
 public:
     test_ctx(size_t size) :
         ptr_raw(new char [size + ALIGNMENT]),
-        ptr_align(reinterpret_cast<char *>((reinterpret_cast<size_t>(ptr_raw) + ALIGNMENT - 1) & ~(ALIGNMENT -1))),
+        ptr_align(reinterpret_cast<char *>((reinterpret_cast<size_t>(ptr_raw) + ALIGNMENT - 1) & ~(ALIGNMENT - 1))),
         mem(reinterpret_cast<size_t>(ptr_align), size),
         heap(mem)
     {
@@ -20,7 +20,6 @@ public:
 
     void *alloc(size_t size) { return heap.alloc(size); };
     void free(void *p) { heap.free(p); }
-
 
 private:
     char *ptr_raw;
