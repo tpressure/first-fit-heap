@@ -166,4 +166,30 @@ TEST(heap_has_valid_default_alignment,
     return TEST_SUCCESS;
 });
 
+TEST(integrity_check,
+{
+    __attribute__((aligned(HEAP_MIN_ALIGNMENT))) char buffer[1024];
+
+    fixed_memory mem(size_t(buffer), 1024);
+    first_fit_heap<> heap(mem);
+
+    HEAP_UNUSED auto* p1 = heap.alloc(16);
+    auto* p2 = heap.alloc(16);
+    HEAP_UNUSED auto* p3 = heap.alloc(16);
+    auto* p4 = heap.alloc(16);
+    HEAP_UNUSED auto* p5 = heap.alloc(16);
+    *((char*)p3 - 8) = 5;
+
+    heap.free(p2);
+    heap.free(p4);
+
+    try {
+        heap.check_integrity();
+    } catch (std::exception&) {
+        return TEST_SUCCESS;
+    }
+    return TEST_FAILED;
+});
+
+
 TEST_SUITE_END
