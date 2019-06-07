@@ -426,6 +426,15 @@ public:
         free_list.insert(header);
     }
 
+    void check_integrity()
+    {
+        header_used* h {reinterpret_cast<header_used*>(mem.base())};
+        while (size_t(h) < mem.end()) {
+            ASSERT_HEAP(h->canary_alive());
+            h = reinterpret_cast<header_used*>(reinterpret_cast<char*>(h) + h->size() + sizeof(header_used));
+        }
+    }
+
     size_t num_blocks() const
     {
         size_t cnt {0};
