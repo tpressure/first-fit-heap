@@ -397,10 +397,12 @@ private:
     };
 
 private:
+    memory &mem;
+
     free_list_container free_list;
 
 public:
-    first_fit_heap(memory &mem_) : free_list(mem_, new(reinterpret_cast<void *>(mem_.base())) header_free(mem_.size() - sizeof(header_used)))
+    first_fit_heap(memory &mem_) : mem(mem_), free_list(mem_, new(reinterpret_cast<void *>(mem_.base())) header_free(mem_.size() - sizeof(header_used)))
     {
     }
 
