@@ -48,7 +48,7 @@
 
 #ifdef HEAP_ENABLE_ASSERT
     #ifdef HEAP_LINUX
-        #define ASSERT_HEAP(cond) assert(cond)
+        #define ASSERT_HEAP(cond) if (not (cond)) { throw std::exception(); }
     #else
         #define ASSERT_HEAP(cond) heap_assert(cond, #cond)
     #endif
