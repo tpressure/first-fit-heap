@@ -191,5 +191,35 @@ TEST(integrity_check,
     return TEST_FAILED;
 });
 
+TEST(merging_works_without_losing_memory,
+{
+    __attribute__((aligned(HEAP_MIN_ALIGNMENT))) char buffer[1024];
+
+    fixed_memory mem(size_t(buffer), 1024);
+    first_fit_heap<> heap(mem);
+
+    auto free_mem_begin {heap.free_mem()};
+    ASSERT(heap.num_blocks() == 1);
+
+    auto* p1 = heap.alloc(16);
+    auto* p2 = heap.alloc(16);
+    auto* p3 = heap.alloc(16);
+
+    ASSERT(heap.num_blocks() == 1);
+
+    heap.free(p2);
+    ASSERT(heap.num_blocks() == 2);
+
+    heap.free(p1);
+    ASSERT(heap.num_blocks() == 2);
+
+    heap.free(p3);
+    ASSERT(heap.num_blocks() == 1);
+
+    ASSERT(heap.free_mem() == free_mem_begin);
+
+    return TEST_SUCCESS;
+});
+
 
 TEST_SUITE_END
