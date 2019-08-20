@@ -6,19 +6,15 @@ compiler:
   - gcc
   - clang
 
-install:
-- if [ "$CXX" = "g++" ]; then export CXX="g++-7" CC="gcc-7"; fi
-
 addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
     packages:
-    - gcc-7
     - g++-7
     - clang
 
 script:
-  - cd test
-  - make heap_test_travis
-  - ./heap_test_travis
+  - cmake -DCMAKE_BUILD_TYPE=Release
+  - make
+  - ctest
