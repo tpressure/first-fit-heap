@@ -144,7 +144,7 @@ private:
             return following;
         }
 
-        header_used *preceding_block(const memory& mem)
+        header_used *preceding_block([[maybe_unused]] const memory& mem)
         {
             if (not prev_free()) {
                 return nullptr;
