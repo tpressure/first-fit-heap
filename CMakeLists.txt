@@ -14,7 +14,7 @@ add_executable(${PROJECT_NAME}-test test/main.cpp)
 add_test(NAME ${PROJECT_NAME}-test COMMAND ${PROJECT_NAME}-test)
 target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 target_compile_options(${PROJECT_NAME}-test PRIVATE -Wall -Wextra -Werror)
-target_compile_definitions(${PROJECT_NAME}-test PRIVATE HEAP_LINUX)
+target_compile_definitions(${PROJECT_NAME}-test PRIVATE HEAP_LINUX HEAP_ENABLE_ASSERT)
 
 set(CPACK_PACKAGE_NAME "first-fit-heap")
 set(CPACK_PACKAGE_VENDOR "Thomas Prescher")
