@@ -16,7 +16,8 @@ static constexpr bool TEST_FAILED  {false};
 #define TEST(name, ...)                  \
     auto test_##name = []() __VA_ARGS__; \
     ok &= test_##name();                  \
-    printf("[%s] " #name "\n", ok ? "  OK  " : "FAILED");
+    printf("[%s] " #name "\n", ok ? "  OK  " : "FAILED"); \
+    ok = true;
 
 #define ASSERT(x)                             \
     if (not (x)) {                            \
